@@ -1,0 +1,18 @@
+# Maven build output
+/target/
+
+# IDE files
+/.idea/
+/.agents/
+*.iml
+/.vscode/
+
+# Local environment and logs
+.env
+.env.*
+!.env.example
+*.log
+
+# Operating system files
+.DS_Store
+Thumbs.db

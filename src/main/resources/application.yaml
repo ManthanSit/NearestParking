@@ -1,0 +1,57 @@
+spring:
+  application:
+    name: nearest-car-park
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT:2s}
+
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+      group:
+        readiness:
+          include: readinessState,redis,carParkData
+          show-details: always
+  health:
+    readinessstate:
+      enabled: true
+    livenessstate:
+      enabled: true
+carpark:
+  catalog:
+    refresh-cooldown-seconds: ${CARPARK_CATALOG_REFRESH_COOLDOWN_SECONDS:600}
+  availability:
+    poll-interval-ms: ${AVAILABILITY_POLL_INTERVAL_MS:60000}
+    stale-after: ${AVAILABILITY_STALE_AFTER:120s}
+  rate-limit:
+    search-limit: ${SEARCH_RATE_LIMIT:30}
+    window-seconds: ${SEARCH_RATE_WINDOW_SECONDS:60}
+
+data-gov-sg:
+  catalogue-url: ${DATA_GOV_SG_CATALOGUE_URL:https://data.gov.sg/api/action/datastore_search}
+  catalogue-resource-id: ${DATA_GOV_SG_CATALOGUE_RESOURCE_ID:d_23f946fa557947f93a8043bbef41dd09}
+  availability-url: ${DATA_GOV_SG_AVAILABILITY_URL:https://api.data.gov.sg/v1/transport/carpark-availability}
+
+springdoc:
+  swagger-ui:
+    url: /openapi.yaml
+    path: /swagger-ui.html
+
+info:
+  app:
+    name: ${spring.application.name}
+    version: 0.1.0-SNAPSHOT

@@ -1,0 +1,121 @@
+openapi: 3.1.0
+info:
+  title: Nearest HDB Car Park API
+  version: 1.0.0
+  description: Find nearby HDB car parks with current availability by vehicle type.
+servers:
+  - url: /
+paths:
+  /api/v1/carparks/nearest:
+    get:
+      operationId: findNearestCarParks
+      summary: Find nearby available HDB car parks
+      description: Searches Redis-backed data; it does not call Data.gov.sg for each request.
+      parameters:
+        - name: latitude
+          in: query
+          required: true
+          schema: { type: number, format: double, minimum: -90, maximum: 90 }
+          description: WGS84 latitude in decimal degrees.
+        - name: longitude
+          in: query
+          required: true
+          schema: { type: number, format: double, minimum: -180, maximum: 180 }
+          description: WGS84 longitude in decimal degrees.
+        - name: vehicleType
+          in: query
+          required: true
+          schema: { type: string, enum: [car, motorcycle, heavy] }
+        - name: radiusKm
+          in: query
+          required: false
+          schema: { type: number, format: double, exclusiveMinimum: 0, maximum: 5, default: 3 }
+          description: Search radius in kilometres.
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 10, default: 3 }
+          description: Maximum number of available results.
+      responses:
+        '200':
+          description: Matching car parks ordered by distance. Results may be empty.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SearchResponse' }
+        '400':
+          description: Invalid coordinates, vehicle type, radius, or limit.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429':
+          description: Search request limit exceeded.
+          headers:
+            Retry-After:
+              schema: { type: integer }
+              description: Seconds until the current rate-limit window expires.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '503':
+          description: Catalogue or initial availability snapshot is not ready.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /api/v1/carparks/catalog/refresh:
+    post:
+      operationId: refreshCarParkCatalogue
+      summary: Manually refresh the HDB car park catalogue
+      description: Public endpoint. A global ten-minute cooldown limits upstream fetches.
+      responses:
+        '200':
+          description: Catalogue refreshed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CatalogRefreshResponse' }
+        '429':
+          description: Catalogue refresh cooldown is active.
+          headers:
+            Retry-After:
+              schema: { type: integer }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '502':
+          description: Upstream catalogue fetch failed; the current catalogue is retained.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+components:
+  schemas:
+    SearchResponse:
+      type: object
+      required: [radiusKm, limit, availabilityUpdatedAt, results]
+      properties:
+        radiusKm: { type: number }
+        limit: { type: integer }
+        availabilityUpdatedAt: { type: string, format: date-time }
+        results:
+          type: array
+          items: { $ref: '#/components/schemas/CarParkResult' }
+    CarParkResult:
+      type: object
+      required: [carparkNumber, address, vehicleType, distanceMeters, availableLots, totalLots]
+      properties:
+        carparkNumber: { type: string }
+        address: { type: string }
+        vehicleType: { type: string, enum: [car, motorcycle, heavy] }
+        distanceMeters: { type: number }
+        availableLots: { type: integer }
+        totalLots: { type: integer }
+    CatalogRefreshResponse:
+      type: object
+      required: [updatedAt, carparksLoaded]
+      properties:
+        updatedAt: { type: string, format: date-time }
+        carparksLoaded: { type: integer }
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string }
+        message: { type: string }
